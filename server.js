@@ -101,21 +101,14 @@ app.get("/users/me", function (req, res) {
   }
 });
 
-app.get("/users/:specifier", function (req, res) {
+app.get("/users/:id", function (req, res) {
   let userInfo = authorization(req, res);
   if (userInfo != false) {
-    let specifier = req.params.specifier;
-    let isnum = /^\d+$/.test(specifier);
-    let token = authorization(req, res);
-    if (isnum) {
-      var sql = "SELECT * FROM users WHERE id = " + specifier;
+      var sql = "SELECT * FROM users WHERE id = " + req.params.id;
       con.query(sql, function (err, result, fields) {
         if (err) throw err;
         res.json(result);
       });
-    } else {
-      res.json(token);
-    }
   }
 });
 
