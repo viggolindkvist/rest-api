@@ -47,7 +47,7 @@ app.get("/", (req, res) => {
 });
 
 //Add new User
-app.post("/users", function (req, res) {
+app.post("/user", function (req, res) {
   let passwordhash = hash(req.body.password);
   var sql = `INSERT INTO users (username, password, age) VALUES ('${req.body.username}', '${passwordhash}', '${req.body.age}')`;
   con.query(sql, function (err, result, fields) {
@@ -93,7 +93,7 @@ app.post("/login", function (req, res) {
 });
 
 //Show Users + if id = me => send info from user token
-app.get("/users/me", function (req, res) {
+app.get("/user/me", function (req, res) {
   let userInfo = authorization(req, res);
   if (userInfo != false) {
     let token = authorization(req, res);
@@ -101,7 +101,7 @@ app.get("/users/me", function (req, res) {
   }
 });
 
-app.get("/users/:id", function (req, res) {
+app.get("/user/:id", function (req, res) {
   let userInfo = authorization(req, res);
   if (userInfo != false) {
       var sql = "SELECT * FROM users WHERE id = " + req.params.id;
@@ -126,7 +126,7 @@ app.get("/users", function (req, res) {
 });
 
 //Update User
-app.put("/users/:id", function (req, res) {
+app.put("/user/:id", function (req, res) {
   let userInfo = authorization(req, res);
   if (userInfo != false) {
     let passwordhash = hash(req.body.password);
