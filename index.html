@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>Documention</h1>
+    <h2>Routes</h2>
+    <ul>
+        <li>    GET / <br>  Home</li>
+
+        <li>    POST /login <br> Login to an existing account</li>
+
+        <li>🔐  GET /users <br> Show all users. Token required</li>
+
+        <li>🔐  GET /users/{specifier} <br> Specify an id to get corresponding user. /users/me shows current token user</li>
+
+        <li>🔐  PUT /users/{id} <br> Updates a specific users credentials </li>
+
+        <li>    Routes marked with 🔐 requires a valid token</li>
+
+    </ul>
+</body>
+</html>

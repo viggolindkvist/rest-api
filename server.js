@@ -13,21 +13,22 @@ var con = mysql.createConnection({
 });
 
 //funktion för att autentisera en användare
-//Så länge man är inloggad kan man även ändra andra users 
+//Så länge man har en bearer token kan man även ändra andra users
 function authorization(req, res) {
   let authHeader = req.headers["authorization"];
   if (authHeader == undefined) {
     res.status(418).send("auth-header is missing");
-    return false
+    return false;
   }
   let token = authHeader.slice(7);
   let decoded;
   try {
     decoded = jwt.verify(token, "signeradochklar");
+    return decoded;
   } catch (err) {
     console.log(err);
     res.status(401).send("Invalid auth token");
-    return decoded 
+    return decoded;
   }
 }
 
@@ -40,6 +41,10 @@ function hash(data) {
   hash.update(data);
   return hash.digest("hex");
 }
+
+app.get("/", (req, res) => {
+  res.sendfile(__dirname + "/index.html");
+});
 
 //Add new User
 app.post("/users", function (req, res) {
@@ -87,22 +92,44 @@ app.post("/login", function (req, res) {
   });
 });
 
-//Show Users
-app.get("/users/:id", function (req, res) {
-  var sql = "SELECT * FROM users WHERE id = " + req.params.id;
-  con.query(sql, function (err, result, fields) {
-    if (err) throw err;
-    res.json(result);
-  });
+//Show Users + if id = me => send info from user token
+app.get("/users/me", function (req, res) {
+  let userInfo = authorization(req, res);
+  if (userInfo != false) {
+    let token = authorization(req, res);
+    res.json(token);
+  }
 });
+
+app.get("/users/:specifier", function (req, res) {
+  let userInfo = authorization(req, res);
+  if (userInfo != false) {
+    let specifier = req.params.specifier;
+    let isnum = /^\d+$/.test(specifier);
+    let token = authorization(req, res);
+    if (isnum) {
+      var sql = "SELECT * FROM users WHERE id = " + specifier;
+      con.query(sql, function (err, result, fields) {
+        if (err) throw err;
+        res.json(result);
+      });
+    } else {
+      res.json(token);
+    }
+  }
+});
+
 app.get("/users", function (req, res) {
-  let ageQuery;
-  req.query.age ? (ageQuery = req.query.age) : (ageQuery = "%");
-  var sql = `SELECT * FROM users WHERE age LIKE '${ageQuery}'`;
-  con.query(sql, function (err, result, fields) {
-    if (err) throw err;
-    res.json(result);
-  });
+  let userInfo = authorization(req, res);
+  if (userInfo != false) {
+    let ageQuery;
+    req.query.age ? (ageQuery = req.query.age) : (ageQuery = "%");
+    var sql = `SELECT * FROM users WHERE age LIKE '${ageQuery}'`;
+    con.query(sql, function (err, result, fields) {
+      if (err) throw err;
+      res.json(result);
+    });
+  }
 });
 
 //Update User
@@ -110,43 +137,19 @@ app.put("/users/:id", function (req, res) {
   let userInfo = authorization(req, res);
   if (userInfo != false) {
     let passwordhash = hash(req.body.password);
-  let sql = `UPDATE users SET username = '${req.body.username}', password = '${passwordhash}', age = '${req.body.age}' WHERE id = '${req.params.id}'`;
-  con.query(sql, function (err, result, fields) {
-    if (err) throw err;
-    let updatedUser = {
-      username: `${req.body.username}`,
-      password: `${passwordhash}`,
-      age: `${req.body.age}`,
-      id: `${req.params.id}`,
-    };
-    res.json(updatedUser);
-  });
-  }
-});
-
-/*Update User, försök 1 att kolla att id existerar 
-app.put("/users/:id", function (req, res) {
-  let numberOfRows = `COUNT()`
-  con.query(numberOfRows, function (err, fields) {
-    if (err) throw err;
-  });
-  if (numberOfRows >= req.params.id) {
-    let sql = `UPDATE users SET username = '${req.body.username}', password = '${req.body.password}', age = '${req.body.age}' WHERE id = '${req.params.id}'`;
+    let sql = `UPDATE users SET username = '${req.body.username}', password = '${passwordhash}', age = '${req.body.age}' WHERE id = '${req.params.id}'`;
     con.query(sql, function (err, result, fields) {
       if (err) throw err;
       let updatedUser = {
         username: `${req.body.username}`,
-        password: `${req.body.password}`,
+        password: `${passwordhash}`,
         age: `${req.body.age}`,
-        id: result.insertId,
+        id: `${req.params.id}`,
       };
       res.json(updatedUser);
     });
-
-  } else {
-    res.status(400).send('Angivet ID existerar ej.')
-  };
-});*/
+  }
+});
 
 // Listening to port :]
 app.listen(port, () => {
