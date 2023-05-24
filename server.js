@@ -13,7 +13,6 @@ var con = mysql.createConnection({
 });
 
 //funktion för att autentisera en användare
-//Så länge man har en bearer token kan man även ändra andra users
 function authorization(req, res) {
   let authHeader = req.headers["authorization"];
   if (authHeader == undefined) {
@@ -49,17 +48,64 @@ app.get("/", (req, res) => {
 //Add new User
 app.post("/user", function (req, res) {
   let passwordhash = hash(req.body.password);
-  var sql = `INSERT INTO users (username, password, age) VALUES ('${req.body.username}', '${passwordhash}', '${req.body.age}')`;
-  con.query(sql, function (err, result, fields) {
-    if (err) throw err;
-    let answer = {
-      username: `${req.body.username}`,
-      password: `${passwordhash}`,
-      age: `${req.body.age}`,
-      id: result.insertId,
-    };
-    res.json(answer);
+  var checkUsernameSql = "SELECT * FROM users WHERE username = ?";
+  con.query(checkUsernameSql, [req.body.username], function (err, result) {
+    if (err) {
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    if (result.length > 0) {
+      res.status(409).send("Username already exists");
+      return;
+    }
+    var insertUserSql =
+      "INSERT INTO users (username, password, age) VALUES (?, ?, ?)";
+    con.query(
+      insertUserSql,
+      [req.body.username, passwordhash, req.body.age],
+      function (err, result) {
+        if (err) {
+          res.status(500).send("Internal Server Error");
+          return;
+        }
+        let answer = {
+          username: req.body.username,
+          password: passwordhash,
+          age: req.body.age,
+          id: result.insertId,
+        };
+        res.json(answer);
+      }
+    );
   });
+});
+
+//Delete User by id
+app.delete("/user/:id", function (req, res) {
+  let userInfo = authorization(req, res);
+  if (userInfo !== false) {
+    var sqlCheck = "SELECT * FROM `users` WHERE `id` = " + req.params.id;
+    con.query(sqlCheck, function (err, result) {
+      if (err) {
+        res.status(500).send("Internal Server Error");
+        return;
+      }
+      if (result.length === 0) {
+        res.status(204).send("No Content found");
+        return;
+      }
+      var sqlDelete = "DELETE FROM `users` WHERE `id` = " + req.params.id;
+      con.query(sqlDelete, function (err, result) {
+        if (err) {
+          res.status(500).send("Internal Server Error");
+          return;
+        }
+        res.status(200).send("Accepted, User was deleted");
+      });
+    });
+  } else {
+    res.status(418).send("Unauthorized");
+  }
 });
 
 //Login
@@ -80,9 +126,11 @@ app.post("/login", function (req, res) {
         sub: req.body.id,
         name: req.body.username,
       };
-      let token = jwt.sign(payload, "signeradochklar");
+      let token = jwt.sign(payload, "signeradochklar", {
+        expiresIn: "2h", //expires in 2 hours
+      });
       res.json({
-        answer: answer,
+        //        answer: answer,        "Din inloggningsroute (POST /login) returnerar inte information om användaren i klartext utan en tidsbegränsad JWT (token)"
         token: token,
       });
       return;
@@ -101,14 +149,22 @@ app.get("/user/me", function (req, res) {
   }
 });
 
-app.get("/user/:id", function (req, res) {
+app.get("/user/:identifier", function (req, res) {
   let userInfo = authorization(req, res);
-  if (userInfo != false) {
-      var sql = "SELECT * FROM users WHERE id = " + req.params.id;
-      con.query(sql, function (err, result, fields) {
-        if (err) throw err;
-        res.json(result);
-      });
+  if (userInfo !== false) {
+    var identifier = req.params.identifier;
+    var sql = "SELECT * FROM users WHERE id = ? OR username = ?";
+    con.query(sql, [identifier, identifier], function (err, result, fields) {
+      if (err) {
+        res.status(500).send("Internal Server Error");
+        return;
+      }
+      if (result.length === 0) {
+        res.status(404).send("User Not Found");
+        return;
+      }
+      res.json(result);
+    });
   }
 });
 
